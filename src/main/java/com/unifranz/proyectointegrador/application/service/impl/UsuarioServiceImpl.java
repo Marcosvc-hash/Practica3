@@ -5,41 +5,53 @@ import com.unifranz.proyectointegrador.application.service.UsuarioService;
 import com.unifranz.proyectointegrador.domain.Usuario;
 import com.unifranz.proyectointegrador.infrastructure.persistence.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UsuarioServiceImpl implements UsuarioService {
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+
+    private final UsuarioRepository usuarioRepository;
 
     @Override
-    public UsuarioDto guardar (UsuarioDto usuarioDto){
+    public UsuarioDto guardar(UsuarioDto usuarioDto) {
         Usuario usuario = new Usuario();
-        // validacion
         usuario.setNombre(usuarioDto.getNombre());
         usuario.setEmail(usuarioDto.getEmail());
-        Usuario guardado =  usuarioRepository.save(usuario);
-        return new UsuarioDto(guardado.getId(), guardado.getNombre(),guardado.getEmail());
+        // fechaCreacion, creadoPor y eliminado los llena @PrePersist
+        Usuario guardado = usuarioRepository.save(usuario);
+        return new UsuarioDto(guardado);
     }
 
     @Override
-    public List<UsuarioDto> listar(){
-        return usuarioRepository.findByActivoTrue()
+    public List<UsuarioDto> listar() {
+        return usuarioRepository.findByEliminadoFalse()
                 .stream()
-                .map(u -> new UsuarioDto(u.getId(),u.getNombre(), u.getEmail()))
-                .collect(Collectors.toList());
+                .map(UsuarioDto::new)
+                .toList();
     }
 
     @Override
-    public void eliminarLogico(Long id){
-        Usuario usuario = usuarioRepository.findByIdAndActivoTrue(id)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado o ya eliminado"));
-        usuario.setActivo(false);
+    public UsuarioDto actualizar(Long id, UsuarioDto usuarioDto) {
+        Usuario usuario = buscarActivo(id);
+        usuario.setNombre(usuarioDto.getNombre());
+        usuario.setEmail(usuarioDto.getEmail());
+        // fechaModificacion y modificadoPor los llena @PreUpdate
+        Usuario actualizado = usuarioRepository.saveAndFlush(usuario);
+        return new UsuarioDto(actualizado);
+    }
+
+    @Override
+    public void eliminarLogico(Long id) {
+        Usuario usuario = buscarActivo(id);
+        usuario.setEliminado(true);   // no se borra de la BD, solo se marca
         usuarioRepository.save(usuario);
+    }
+
+    private Usuario buscarActivo(Long id) {
+        return usuarioRepository.findByIdAndEliminadoFalse(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado o ya eliminado"));
     }
 }
